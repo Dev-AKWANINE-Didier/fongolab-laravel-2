@@ -2,17 +2,20 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Laravel\Fortify\Fortify;
 use App\Actions\Fortify\CreateNewUser;
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Cache\RateLimiting\Limit;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Actions\Fortify\UpdateUserPassword;
-use App\Actions\Fortify\UpdateUserProfileInformation;
-use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Str;
+use Laravel\Fortify\Contracts\LoginResponse;
+use Laravel\Fortify\Contracts\LogoutResponse;
+use Laravel\Fortify\Contracts\RegisterResponse;
+use App\Actions\Fortify\UpdateUserProfileInformation;
 use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
-use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
 {
@@ -21,7 +24,34 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // redirection apres la deconnection 
+        $this->app->instance(LogoutResponse::class, new class implements LogoutResponse{
+            public function toResponse($request){
+                return redirect()->route("login");
+            }
+        });
+
+        // redirection apres la connexion selon le role 
+        $this->app->instance(LoginResponse::class, new class implements LoginResponse{
+            public function toResponse($request){
+                if(auth()->user()->role == "admin"){
+                    return redirect()->route("dashboard");
+                }else{
+                   return redirect("/") ;
+                }
+            }
+        });
+
+        // redirection apres inscription
+       $this->app->instance(RegisterResponse::class, new class implements RegisterResponse{
+            public function toResponse($request){
+                if(auth()->user()->role == "admin"){
+                    return redirect()->route("dashboard");
+                }else{
+                   return redirect("/") ;
+                }
+            }
+        });
     }
 
     /**
@@ -53,6 +83,16 @@ class FortifyServiceProvider extends ServiceProvider
         // pour la connexion
         Fortify::loginView(function(){
             return view("auth.login");
+        });
+
+        // reiniatialisation de mot de passe 
+        Fortify::requestPasswordResetLinkView(function(){
+            return view("auth.forgot-password");
+        });
+
+        // reset-password 
+        Fortify::resetPasswordView(function(Request $request){
+            return view("auth.reset-password",["request"=>$request]);
         });
     }
 }
