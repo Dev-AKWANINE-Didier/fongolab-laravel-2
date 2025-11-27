@@ -10,6 +10,7 @@
     @auth
         {{ auth()->user()->name }}
     @endauth
+    <a href="{{ route("user-category-index") }}">Visiter les categories</a>
 </h1>
 </body>
 </html>
